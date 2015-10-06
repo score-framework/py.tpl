@@ -33,7 +33,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 
 setup(
     name='score.tpl',
-    version='0.1',
+    version='0.1.1',
     description='Templating support for The SCORE Framework',
     long_description=README,
     author='strg.at',
@@ -41,6 +41,8 @@ setup(
     url='http://score-framework.org',
     keywords='score framework web templates jinja jinja2 pyramid',
     packages=['score.tpl', 'score.tpl.jinja2'],
+    namespace_packages=['score'],
+    zip_safe=False,
     license='LGPL',
     classifiers=[
         'Development Status :: 4 - Beta',
