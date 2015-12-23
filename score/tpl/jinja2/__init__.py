@@ -111,6 +111,7 @@ class GenericRenderer(EngineRendererBase):
             cache = jinja2.FileSystemBytecodeCache(self.cachedir)
         loader = jinja2.FileSystemLoader(self.rootdir)
         env = jinja2.Environment(
+            autoescape=True,
             loader=loader,
             extensions=extensions,
             undefined=jinja2.StrictUndefined,
@@ -125,4 +126,4 @@ class GenericRenderer(EngineRendererBase):
         The extensions to register while generating the
         :class:`jinja2.Environment` in :meth:`.build_environment`.
         """
-        return ['jinja2.ext.i18n']
+        return ['jinja2.ext.i18n', 'jinja2.ext.autoescape']

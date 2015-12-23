@@ -55,6 +55,7 @@ class Renderer(RendererBase):
     def add_function(self, name, callback, escape_output=True):
         if escape_output:
             return super().add_function(name, callback)
+
         @wraps(callback)
         def wrapper(*args, **kwargs):
             return jinja2.Markup(callback(*args, **kwargs))
@@ -63,15 +64,19 @@ class Renderer(RendererBase):
     def add_filter(self, name, callback, escape_output=True):
         if escape_output:
             return super().add_filter(name, callback)
+
         @wraps(callback)
         def wrapper(*args, **kwargs):
             return jinja2.Markup(callback(*args, **kwargs))
         return super().add_filter(name, wrapper)
 
+    def build_environment(self):
+        env = super().build_environment()
+        env.autoescape = True
+        return env
+
     def get_extensions(self):
         extensions = super().get_extensions()
-        extensions.append('jinja2.ext.autoescape')
         if self.embedpaths:
             extensions.append(FilenameEmbedder)
         return extensions
-
