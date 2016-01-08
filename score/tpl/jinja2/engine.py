@@ -32,10 +32,8 @@ Implements the :term:`engine <template engine>` for Jinja2_ templates.
 
 
 import jinja2
-from score.tpl import (
-    Engine as EngineBase,
-    EngineRenderer as EngineRendererBase,
-)
+from score.tpl.engine import Engine as EngineBase
+from score.tpl.renderer import Renderer as RendererBase
 
 
 class Engine(EngineBase):
@@ -56,7 +54,7 @@ class Engine(EngineBase):
         return GenericRenderer(rootdir, cachedir)
 
 
-class GenericRenderer(EngineRendererBase):
+class GenericRenderer(RendererBase):
     """
     The default :class:`Renderer <score.tpl.EngineRenderer>` of
     Jinja2-templates.
