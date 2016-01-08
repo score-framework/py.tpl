@@ -40,7 +40,7 @@ setup(
     author_email='score@strg.at',
     url='http://score-framework.org',
     keywords='score framework web templates jinja jinja2 pyramid',
-    packages=['score.tpl', 'score.tpl.jinja2'],
+    packages=['score', 'score.tpl', 'score.tpl.jinja2'],
     namespace_packages=['score'],
     zip_safe=False,
     license='LGPL',
