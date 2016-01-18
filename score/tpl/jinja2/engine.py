@@ -79,11 +79,13 @@ class GenericRenderer(RendererBase):
         self.globals[name] = value
         self._env = None
 
-    def render_string(self, string, variables):
+    def render_string(self, ctx, string, variables=None):
+        variables = self._fix_variables(ctx, variables)
         tpl = self.env.from_string(string)
         return tpl.render(variables)
 
-    def render_file(self, filepath, variables):
+    def render_file(self, ctx, filepath, variables=None):
+        variables = self._fix_variables(ctx, variables)
         tpl = self.env.get_template(filepath)
         return tpl.render(variables)
 

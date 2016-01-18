@@ -14,7 +14,7 @@ class TemplateConverter:
         self.rootdir = rootdir
         self.encoding = encoding
 
-    def convert_file(self, path):
+    def convert_file(self, ctx, path):
         """
         Converts a *path* by searching the appropriate file in the configured
         root folder and returning its contents.
@@ -24,7 +24,7 @@ class TemplateConverter:
             return bincontent
         return str(bincontent, self.encoding)
 
-    def convert_string(self, string, path=None):
+    def convert_string(self, ctx, string, path=None):
         """
         Returns the input string, optionally converting to binary, if that was
         the configured encoding. The optional parameter *path* will be passed
@@ -215,7 +215,7 @@ class Renderer:
         for key in self.subrenderers:
             self.subrenderers[key].add_global(name, value)
 
-    def render_file(self, file, variables={}):
+    def render_file(self, ctx, file, variables=None):
         """
         Renders given template *file* with the provided `dict` of *variables*,
         mapping name to value. This function will determine the
@@ -226,17 +226,18 @@ class Renderer:
         If the template format cannot be determined and no ``default_format``
         was configured, a ValueError is raised.
         """
+        variables = self._fix_variables(ctx, variables)
         parts = file.rsplit('.', 2)
         if len(parts) == 2:
             ext = parts[1]
             if ext in self.formats and ext in self.engines:
                 raise ValueError("Ambiguous file extension `%s`: it's both a format and an engine." % ext)
             if ext in self.formats:
-                return self.format_converter(ext).convert_file(file)
+                return self.format_converter(ext).convert_file(ctx, file)
             elif not self.default_format:
                 raise ValueError("Could not determine file format of '%s'." % file)
             elif ext not in self.engines:
-                return self.format_converter(self.default_format).convert_file(file)
+                return self.format_converter(self.default_format).convert_file(ctx, file)
             else:
                 format, engine = self.default_format, ext
         elif len(parts) == 3:
@@ -246,15 +247,15 @@ class Renderer:
                     raise ValueError("Could not determine file format of '%s'." % file)
                 format = self.default_format
             if engine not in self.engines:
-                return self.format_converter(self.default_format).convert_file(file)
+                return self.format_converter(self.default_format).convert_file(ctx, file)
         else:
             if not self.default_format:
                 raise ValueError("Could not determine file format of '%s'." % file)
-            return self.format_converter(self.default_format).convert_file(file)
-        result = self.subrenderer(format, engine).render_file(file, variables)
-        return self.format_converter(format).convert_string(result, file)
+            return self.format_converter(self.default_format).convert_file(ctx, file)
+        result = self.subrenderer(format, engine).render_file(ctx, file, variables)
+        return self.format_converter(format).convert_string(ctx, result, file)
 
-    def render_string(self, string, format, engine, variables={}):
+    def render_string(self, ctx, string, format, engine, variables=None):
         """
         Renders given template *string* with the provided `dict` of
         *variables*, mapping name to value. Unlike the :meth:`render_file`
@@ -264,7 +265,8 @@ class Renderer:
         See the :ref:`narrative documentation of the rendering process
         <tpl_rendering>` for details.
         """
-        return self.subrenderer(format, engine).render_string(string, variables)
+        variables = self._fix_variables(ctx, variables)
+        return self.subrenderer(format, engine).render_string(ctx, string, variables)
 
     def subrenderer(self, format, engine):
         """
@@ -287,3 +289,10 @@ class Renderer:
             subrenderer.add_global(name, self.globals_[format][name])
         self.subrenderers[key] = subrenderer
         return subrenderer
+
+    def _fix_variables(self, ctx, variables):
+        if variables is None:
+            return {'ctx': ctx}
+        elif 'cxt' not in variables:
+            variables['ctx'] = ctx
+        return variables
