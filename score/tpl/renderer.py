@@ -151,19 +151,19 @@ class Renderer:
         paths = list(virtassets.paths()) if virtassets else []
         if not includehidden:
             paths = [p for p in paths if p[0] != '_' and '/_' not in p]
-        for parent, folders, files in os.walk(self.format_rootdir(format), followlinks=True):
+        traversal = os.walk(self.format_rootdir(format), followlinks=True)
+        for parent, folders, files in traversal:
             for folder in folders[:]:
                 if folder[0] == '_':
                     folders.remove(folder)
             for file in files:
                 if not includehidden and file[0] == '_':
                     continue
-                foundext = False
                 for ext in extensions:
                     if file.endswith(ext):
-                        foundext = True
                         break
-                if not foundext:
+                else:
+                    # unrecognized extension
                     continue
                 fullpath = os.path.join(parent, file)
                 if not os.path.exists(fullpath):
