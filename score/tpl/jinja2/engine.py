@@ -32,7 +32,7 @@ Implements the :term:`engine <template engine>` for Jinja2_ templates.
 
 
 import jinja2
-from score.tpl.engine import Engine as EngineBase, FileNotFound
+from score.tpl.engine import Engine as EngineBase
 from score.tpl.renderer import Renderer as RendererBase
 
 

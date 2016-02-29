@@ -25,7 +25,6 @@
 # Licensee has his registered seat, an establishment or assets.
 
 import logging
-from .engine import FileNotFound
 from .renderer import Renderer as RendererBase
 from score.init import parse_list, ConfiguredModule
 
@@ -94,7 +93,7 @@ class Renderer(RendererBase):
         for backend in self._backends(ctx):
             try:
                 return backend.render_file(ctx, file, variables)
-            except FileNotFound:
+            except FileNotFoundError:
                 pass
         raise exception
 
