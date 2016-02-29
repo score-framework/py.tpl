@@ -86,8 +86,8 @@ class GenericRenderer(RendererBase):
 
     def render_file(self, ctx, filepath, variables=None):
         variables = self._fix_variables(ctx, variables)
-        tpl = self.env.get_template(filepath)
         try:
+            tpl = self.env.get_template(filepath)
             return tpl.render(variables)
         except jinja2.TemplateNotFound as e:
             raise FileNotFoundError(filepath) from e

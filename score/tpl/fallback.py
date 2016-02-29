@@ -89,13 +89,12 @@ class Renderer(RendererBase):
 
     def render_file(self, ctx, file, variables=None):
         self._flush_calls(ctx)
-        exception = None
         for backend in self._backends(ctx):
             try:
                 return backend.render_file(ctx, file, variables)
             except FileNotFoundError:
                 pass
-        raise exception
+        raise FileNotFoundError(file)
 
     def render_string(self, ctx, string, format, engine, variables=None):
         self._flush_calls(ctx)
