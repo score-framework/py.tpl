@@ -32,7 +32,7 @@ Implements the :term:`engine <template engine>` for Jinja2_ templates.
 
 
 import jinja2
-from score.tpl.engine import Engine as EngineBase
+from score.tpl.engine import Engine as EngineBase, FileNotFound
 from score.tpl.renderer import Renderer as RendererBase
 
 
@@ -87,7 +87,10 @@ class GenericRenderer(RendererBase):
     def render_file(self, ctx, filepath, variables=None):
         variables = self._fix_variables(ctx, variables)
         tpl = self.env.get_template(filepath)
-        return tpl.render(variables)
+        try:
+            return tpl.render(variables)
+        except jinja2.TemplateNotFound as e:
+            raise FileNotFoundError(filepath) from e
 
     @property
     def env(self):
