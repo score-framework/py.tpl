@@ -92,8 +92,9 @@ class Renderer(RendererBase):
         for backend in self._backends(ctx):
             try:
                 return backend.render_file(ctx, file, variables)
-            except FileNotFoundError:
-                pass
+            except FileNotFoundError as e:
+                if e.filename != file:
+                    raise
         raise FileNotFoundError(file)
 
     def render_string(self, ctx, string, format, engine, variables=None):
