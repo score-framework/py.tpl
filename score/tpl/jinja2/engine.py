@@ -90,7 +90,10 @@ class GenericRenderer(RendererBase):
             tpl = self.env.get_template(filepath)
             return tpl.render(variables)
         except jinja2.TemplateNotFound as e:
-            raise FileNotFoundError(filepath) from e
+            if e.filename == filepath:
+                raise FileNotFoundError(filepath) from e
+            else:
+                raise
 
     @property
     def env(self):
