@@ -235,10 +235,10 @@ Converter
 Engine
 ======
 
-.. autoclass:: score.tpl.Engine
+.. autoclass:: score.tpl.engine.Engine
     :members:
 
-.. autoclass:: score.tpl.EngineRenderer
+.. autoclass:: score.tpl.engine.EngineRenderer
     :members:
 
 jinja2
@@ -259,11 +259,3 @@ jinja2
 
 .. autoclass:: score.tpl.jinja2.html.Renderer
     :members:
-
-
-Pyramid Integration
-===================
-
-.. automodule:: score.tpl.pyramid
-    :members:
-
