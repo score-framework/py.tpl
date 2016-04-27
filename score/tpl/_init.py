@@ -37,7 +37,7 @@ import os
 from .renderer import Renderer
 from score.init import (
     extract_conf, init_cache_folder,
-    init_object, ConfiguredModule
+    init_object, ConfiguredModule, ConfigurationError
 )
 
 
@@ -90,7 +90,9 @@ def init(confdict, webassets=None):
     if conf['cachedir']:
         init_cache_folder(conf, 'cachedir', autopurge=True)
     if conf['rootdir']:
-        assert os.path.isdir(conf['rootdir'])
+        if not os.path.isdir(conf['rootdir']):
+            import score.tpl
+            raise ConfigurationError(score.tpl, 'Given rootdir is not a folder')
     renderer = Renderer(conf['rootdir'], conf['cachedir'],
                         conf['default_format'])
     extensions = set()
