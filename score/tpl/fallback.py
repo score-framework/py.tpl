@@ -61,6 +61,10 @@ class ConfiguredTplFallbackModule(ConfiguredModule):
         super().__init__(__package__)
         self.backends = backends
         self.renderer = Renderer(self)
+        self._finalize_dependencies = backends
+
+    def _finalize(self, **kwargs):
+        self.renderer._set_backends(kwargs)
 
 
 class Renderer(RendererBase):
@@ -69,45 +73,61 @@ class Renderer(RendererBase):
         self.conf = conf
         self._calls = []
 
+    @property
+    def formats(self):
+        return [format
+                for backend in self._backends.values()
+                for format in backend.formats]
+
     def add_function(self, format, name, callback, *, escape_output=True):
-        self._calls.append((
-            'add_function',
-            [format, name, callback],
-            {'escape_output': escape_output}))
+        if hasattr(self, '_backends'):
+            for backend in self._backends.values():
+                backend.renderer.add_function(format, name, callback,
+                                              escape_output=escape_output)
+        else:
+            self._calls.append((
+                'add_function',
+                [format, name, callback],
+                {'escape_output': escape_output}))
 
     def add_filter(self, format, name, callback, *, escape_output=True):
-        self._calls.append((
-            'add_filter',
-            [format, name, callback],
-            {'escape_output': escape_output}))
+        if hasattr(self, '_backends'):
+            for backend in self._backends.values():
+                backend.renderer.add_filter(format, name, callback,
+                                            escape_output=escape_output)
+        else:
+            self._calls.append((
+                'add_filter',
+                [format, name, callback],
+                {'escape_output': escape_output}))
 
     def add_global(self, format, name, value):
-        self._calls.append((
-            'add_global',
-            [format, name, value],
-            {}))
+        if hasattr(self, '_backends'):
+            for backend in self._backends.values():
+                backend.renderer.add_global(format, name, value)
+        else:
+            self._calls.append((
+                'add_global',
+                [format, name, value],
+                {}))
 
     def render_file(self, ctx, file, variables=None):
-        self._flush_calls(ctx)
-        for backend in self._backends(ctx):
+        for backend in self._backends.values():
             try:
-                return backend.render_file(ctx, file, variables)
+                return backend.renderer.render_file(ctx, file, variables)
             except FileNotFoundError as e:
                 if e.filename != file:
                     raise
         raise FileNotFoundError(file)
 
     def render_string(self, ctx, string, format, engine, variables=None):
-        self._flush_calls(ctx)
-        backend = next(self._backends(ctx))
-        return backend.render_string(ctx, string, format, engine, variables)
+        backend = next(self._backends.values())
+        return backend.renderer.render_string(
+            ctx, string, format, engine, variables)
 
-    def _flush_calls(self, ctx):
+    def _set_backends(self, backends):
+        self._backends = backends
         for func, args, kwargs in self._calls:
-            for backend in self._backends(ctx):
-                getattr(backend, func)(*args, **kwargs)
+            for backend in self._backends.values():
+                getattr(backend.renderer, func)(*args, **kwargs)
         self._calls = []
-
-    def _backends(self, ctx):
-        for alias in self.conf.backends:
-            yield ctx.score._modules[alias].renderer

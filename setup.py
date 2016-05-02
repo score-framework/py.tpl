@@ -59,7 +59,7 @@ setup(
         'Topic :: Software Development :: Libraries :: Application Frameworks',
     ],
     install_requires=[
-        'score.init >= 0.3'
+        'score.init >= 0.3.8'
     ],
     extras_require={
         'jinja2': ['jinja2 >= 2.7']
