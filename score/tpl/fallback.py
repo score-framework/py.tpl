@@ -27,6 +27,7 @@
 import logging
 from .renderer import Renderer as RendererBase
 from score.init import parse_list, ConfiguredModule
+from collections import OrderedDict
 
 
 log = logging.getLogger('score.tpl.fallback')
@@ -126,7 +127,9 @@ class Renderer(RendererBase):
             ctx, string, format, engine, variables)
 
     def _set_backends(self, backends):
-        self._backends = backends
+        self._backends = OrderedDict()
+        for backend in self.conf.backends:
+            self._backends[backend] = backends[backend]
         for func, args, kwargs in self._calls:
             for backend in self._backends.values():
                 getattr(backend.renderer, func)(*args, **kwargs)
