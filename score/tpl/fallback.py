@@ -78,7 +78,7 @@ class Renderer(RendererBase):
     def formats(self):
         return [format
                 for backend in self._backends.values()
-                for format in backend.formats]
+                for format in backend.renderer.formats]
 
     def add_function(self, format, name, callback, *, escape_output=True):
         if hasattr(self, '_backends'):
