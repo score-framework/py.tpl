@@ -93,9 +93,8 @@ class GenericRenderer(RendererBase):
             return tpl.render(variables)
         except jinja2.TemplateNotFound as e:
             if e.name == filepath:
-                f = FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT))
-                f.filename = filepath
-                raise f from e
+                raise FileNotFoundError(
+                    errno.ENOENT, os.strerror(errno.ENOENT), filepath) from e
             else:
                 raise
 
