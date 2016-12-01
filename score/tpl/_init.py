@@ -32,7 +32,6 @@ for rendering templates.
 """
 
 
-import logging
 import os
 from .renderer import Renderer
 from score.init import (
@@ -41,7 +40,6 @@ from score.init import (
 )
 
 
-log = logging.getLogger('score.tpl')
 defaults = {
     'rootdir': None,
     'cachedir': None,
