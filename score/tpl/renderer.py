@@ -226,34 +226,34 @@ class Renderer:
         If the template format cannot be determined and no ``default_format``
         was configured, a ValueError is raised.
         """
-        variables = self._fix_variables(ctx, variables)
+        format = None
+        engine = None
         parts = file.rsplit('.', 2)
-        if len(parts) == 2:
-            ext = parts[1]
-            if ext in self.formats and ext in self.engines:
-                raise ValueError("Ambiguous file extension `%s`: it's both a format and an engine." % ext)
+        if len(parts) > 1:
+            ext = parts[-1]
+            if len(parts) == 2 and ext in self.formats and ext in self.engines:
+                raise ValueError(
+                    "Ambiguous file extension `%s`: "
+                    "it is both a format and an engine." % ext)
             if ext in self.formats:
-                return self.format_converter(ext).convert_file(ctx, file)
-            elif not self.default_format:
-                raise ValueError("Could not determine file format of '%s'." % file)
-            elif ext not in self.engines:
-                return self.format_converter(self.default_format).convert_file(ctx, file)
-            else:
-                format, engine = self.default_format, ext
-        elif len(parts) == 3:
-            _, format, engine = parts
-            if format not in self.formats:
-                if not self.default_format:
-                    raise ValueError("Could not determine file format of '%s'." % file)
-                format = self.default_format
-            if engine not in self.engines:
-                return self.format_converter(self.default_format).convert_file(ctx, file)
-        else:
+                format = ext
+            elif ext in self.engines:
+                engine = ext
+                if len(parts) == 3:
+                    if parts[1] in self.formats:
+                        format = parts[1]
+        if format is None:
             if not self.default_format:
-                raise ValueError("Could not determine file format of '%s'." % file)
-            return self.format_converter(self.default_format).convert_file(ctx, file)
-        result = self.subrenderer(format, engine).render_file(ctx, file, variables)
-        return self.format_converter(format).convert_string(ctx, result, file)
+                raise ValueError(
+                    "Could not determine file format of '%s'." % file)
+            format = self.default_format
+        converter = self.format_converter(format)
+        if not engine:
+            return converter.convert_file(ctx, file)
+        renderer = self.subrenderer(format, engine)
+        variables = self._fix_variables(ctx, variables)
+        result = renderer.render_file(ctx, file, variables)
+        return converter.convert_string(ctx, result, file)
 
     def render_string(self, ctx, string, format, engine, variables=None):
         """
@@ -266,7 +266,8 @@ class Renderer:
         <tpl_rendering>` for details.
         """
         variables = self._fix_variables(ctx, variables)
-        return self.subrenderer(format, engine).render_string(ctx, string, variables)
+        renderer = self.subrenderer(format, engine)
+        return renderer.render_string(ctx, string, variables)
 
     def subrenderer(self, format, engine):
         """
