@@ -33,17 +33,17 @@ for rendering templates.
 
 
 import os
-from .renderer import Renderer
+from ._exc import TemplateNotFound
+from .loader import FileSystemLoader
+from collections import nametuple, defaultdict
 from score.init import (
-    extract_conf, init_cache_folder,
-    init_object, ConfiguredModule, ConfigurationError
+    init_cache_folder, ConfiguredModule, ConfigurationError
 )
 
 
 defaults = {
-    'rootdir': None,
+    'rootdirs': [],
     'cachedir': None,
-    'default_format': None,
 }
 
 
@@ -52,7 +52,7 @@ def init(confdict, webassets=None):
     Initializes this module acoording to :ref:`our module initialization
     guidelines <module_initialization>` with the following configuration keys:
 
-    :confkey:`rootdir` :faint:`[default=None]`
+    :confkey:`rootdirs` :faint:`[default=None]`
         Denotes the root folder containing all templates. When a new format is
         created via :meth:`.Renderer.register_format`, it will have a
         sub-folder of this folder as its default root (unless, of course, the
@@ -69,38 +69,22 @@ def init(confdict, webassets=None):
         recommended that it is either initialized with a ``cachedir`` or a
         *webassets* with a valid ``cachedir``, even if the value points
         to the system's temporary folder.
-
-    :confkey:`default_format` :faint:`[default=None]`
-        The default format of files where the :term:`template format` could
-        not be determined automatically. This must be the name of another,
-        registered format.
-
-    :confkey:`engine.*`
-        All keys starting with ``engine.`` will be registered as engines. For
-        example, if the key ``engine.php`` is provided, the engine will be
-        instantiated via :func:`score.init.init_object` and registered for the
-        extension ``php``.
     """
     conf = dict(defaults.items())
+    conf['rootdirs'] = list(conf['rootdirs'])
     conf.update(confdict)
     if not conf['cachedir'] and webassets and webassets.cachedir:
         conf['cachedir'] = os.path.join(webassets.cachedir, 'tpl')
     if conf['cachedir']:
         init_cache_folder(conf, 'cachedir', autopurge=True)
     if conf['rootdir']:
-        if not os.path.isdir(conf['rootdir']):
+        conf['rootdirs'].append(conf['rootdir'])
+    for rootdir in conf['rootdirs']:
+        if not os.path.isdir(rootdir):
             import score.tpl
-            raise ConfigurationError(score.tpl, 'Given rootdir is not a folder')
-    renderer = Renderer(conf['rootdir'], conf['cachedir'],
-                        conf['default_format'])
-    extensions = set()
-    for key in extract_conf(conf, 'engine.'):
-        extensions.add(key.split('.', 1)[0])
-    for ext in extensions:
-        engine = init_object(conf, 'engine.' + ext)
-        renderer.register_engine(ext, engine)
-    return ConfiguredTplModule(renderer, conf['rootdir'],
-                               conf['cachedir'], conf['default_format'])
+            raise ConfigurationError(
+                score.tpl, 'Given rootdir is not a folder: %s' % (rootdir,))
+    return ConfiguredTplModule(conf['cachedir'], conf['rootdirs'])
 
 
 class ConfiguredTplModule(ConfiguredModule):
@@ -109,9 +93,82 @@ class ConfiguredTplModule(ConfiguredModule):
     <score.init.ConfiguredModule>`.
     """
 
-    def __init__(self, renderer, rootdir, cachedir, default_format):
+    def __init__(self, rootdirs, cachedir, default_format):
         super().__init__(__package__)
-        self.renderer = renderer
-        self.rootdir = rootdir
+        self.rootdirs = rootdirs
         self.cachedir = cachedir
         self.default_format = default_format
+        self.filetypes = {}
+        self.globals = defaultdict(list)
+
+    def define_filetype(self, extension, engine_factories, mimetype,
+                        extra_loaders=None):
+        if extension[0] != '.':
+            extension = '.%s' % (extension,)
+        assert not self._finalized
+        assert extension not in self.filetypes
+        if not extra_loaders and not self.rootdirs:
+            raise Exception('No rootdirs, no loader')  # TODO!!
+        engines = []
+        for Engine in engine_factories:
+            engine = Engine(self, extension, mimetype)
+            for var in self.globals[mimetype]:
+                engine.add_global(var.name, var.value, var.needs_escaping)
+            engines.append(engine)
+        loaders = [FileSystemLoader(self.rootdirs, extension)] + extra_loaders
+        self.filetypes[extension] = FileType(
+            extension, engines, mimetype, loaders)
+
+    def define_global(self, mimetype, name, value, needs_escaping=True):
+        assert not self._finalized
+        assert not any(x for x in self.globals[mimetype] if x.name == name)
+        self.globals[mimetype].append(
+            VariableDefinition(name, value, needs_escaping))
+        for filetype in self.filetypes.values():
+            if mimetype and filetype.mimetype != mimetype:
+                continue
+            for engine in filetype.engines:
+                engine.add_global(name, value, needs_escaping)
+
+    def iter_paths(self, mimetype=None):
+        for filetype in self.filetypes.values():
+            if mimetype and filetype.mimetype != mimetype:
+                continue
+            yield from filetype.loader.iter_paths()
+
+    def render(self, path, variables):
+        parts = os.path.basename(path).split('.', maxsplit=1)
+        if len(parts) == 1:
+            # TODO: other exception?
+            raise TemplateNotFound(path)
+        if parts[1] not in self.filetypes:
+            raise TemplateNotFound(path)
+        filetype = self.filetypes[parts[1]]
+        is_file, result = filetype.loader.load(path)
+        for engine in filetype.engines:
+            if is_file:
+                result = engine.render_file(result, variables, path=path)
+                is_file = False
+            else:
+                result = engine.render_string(result, variables, path=path)
+        if is_file:
+            result = open(result).read()
+        return result
+
+    def hash(self, path):
+        parts = os.path.basename(path).split('.', maxsplit=1)
+        if len(parts) == 1:
+            # TODO: other exception?
+            raise TemplateNotFound(path)
+        if parts[1] not in self.filetypes:
+            raise TemplateNotFound(path)
+        filetype = self.filetypes[parts[1]]
+        return filetype.loader.hash(path)
+
+
+FileType = nametuple('FileType',
+                     ('extension', 'engines', 'mimetypes', 'loader'))
+
+
+VariableDefinition = nametuple('VariableDefinition',
+                               ('name', 'value', 'needs_escaping'))
