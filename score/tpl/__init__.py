@@ -32,6 +32,8 @@ for rendering templates.
 """
 
 from ._init import init, ConfiguredTplModule
+from ._exc import TemplateNotFound
+from .renderer import Renderer
 
 __all__ = (
-    'init', 'ConfiguredTplModule')
+    'init', 'ConfiguredTplModule', 'TemplateNotFound', 'Renderer')

@@ -35,9 +35,10 @@ for rendering templates.
 import os
 from ._exc import TemplateNotFound
 from .loader import FileSystemLoader
-from collections import nametuple, defaultdict
+from collections import namedtuple, defaultdict, OrderedDict
 from score.init import (
-    init_cache_folder, ConfiguredModule, ConfigurationError
+    init_cache_folder, parse_list, extract_conf,
+    ConfiguredModule, ConfigurationError
 )
 
 
@@ -47,7 +48,7 @@ defaults = {
 }
 
 
-def init(confdict, webassets=None):
+def init(confdict):
     """
     Initializes this module acoording to :ref:`our module initialization
     guidelines <module_initialization>` with the following configuration keys:
@@ -56,35 +57,39 @@ def init(confdict, webassets=None):
         Denotes the root folder containing all templates. When a new format is
         created via :meth:`.Renderer.register_format`, it will have a
         sub-folder of this folder as its default root (unless, of course, the
-        `rootdir` parameter of that function is provided). If this value is
+        `rootdirs` parameter of that function is provided). If this value is
         omitted, all calls to :meth:`.Renderer.register_format` must provide a
         format-specific root folder.
-
-    :confkey:`cachedir` :faint:`[default=None]`
-        A cache folder that will be used to cache rendered templates. Will
-        fall back to a sub-folder (called ``tpl``) of the cachedir in the
-        *webassets*, if one was provided.
-
-        Although this module will work without a cache folder, it is highly
-        recommended that it is either initialized with a ``cachedir`` or a
-        *webassets* with a valid ``cachedir``, even if the value points
-        to the system's temporary folder.
     """
     conf = dict(defaults.items())
-    conf['rootdirs'] = list(conf['rootdirs'])
+    conf['rootdirs'] = []
     conf.update(confdict)
-    if not conf['cachedir'] and webassets and webassets.cachedir:
-        conf['cachedir'] = os.path.join(webassets.cachedir, 'tpl')
     if conf['cachedir']:
         init_cache_folder(conf, 'cachedir', autopurge=True)
-    if conf['rootdir']:
-        conf['rootdirs'].append(conf['rootdir'])
-    for rootdir in conf['rootdirs']:
+    if 'rootdir' in conf and conf['rootdirs']:
+        import score.tpl
+        raise ConfigurationError(
+            score.tpl, 'Both rootdir and rootdirs given')
+    if 'rootdir' in conf:
+        conf['rootdirs'] = conf['rootdir']
+    rootdirs = parse_list(conf['rootdirs'])
+    for rootdir in rootdirs:
         if not os.path.isdir(rootdir):
             import score.tpl
             raise ConfigurationError(
                 score.tpl, 'Given rootdir is not a folder: %s' % (rootdir,))
-    return ConfiguredTplModule(conf['cachedir'], conf['rootdirs'])
+    tpl = ConfiguredTplModule(rootdirs, conf['cachedir'])
+    extensions = set()
+    for key in extract_conf(conf, 'filetype.'):
+        extensions.add(key.rsplit('.', 1)[0])
+    for ext in extensions:
+        mimetype = conf.get('filetype.%s.mimetype' % ext)
+        if mimetype is None:
+            import score.tpl
+            raise ConfigurationError(
+                score.tpl, 'No mimetype configured for extension %s' % (ext,))
+        tpl.filetypes[mimetype].extensions.append(ext)
+    return tpl
 
 
 class ConfiguredTplModule(ConfiguredModule):
@@ -93,67 +98,48 @@ class ConfiguredTplModule(ConfiguredModule):
     <score.init.ConfiguredModule>`.
     """
 
-    def __init__(self, rootdirs, cachedir, default_format):
+    def __init__(self, rootdirs, cachedir):
         super().__init__(__package__)
         self.rootdirs = rootdirs
         self.cachedir = cachedir
-        self.default_format = default_format
-        self.filetypes = {}
-        self.globals = defaultdict(list)
+        self.filetypes = FileTypes(self)
+        self.loaders = Loaders(self)
+        self.engines = Engines(self)
+        self.renderers = defaultdict(dict)
 
-    def define_filetype(self, extension, engine_factories, mimetype,
-                        extra_loaders=None):
-        if extension[0] != '.':
-            extension = '.%s' % (extension,)
-        assert not self._finalized
-        assert extension not in self.filetypes
-        if not extra_loaders and not self.rootdirs:
-            raise Exception('No rootdirs, no loader')  # TODO!!
-        engines = []
-        for Engine in engine_factories:
-            engine = Engine(self, extension, mimetype)
-            for var in self.globals[mimetype]:
-                engine.add_global(var.name, var.value, var.needs_escaping)
-            engines.append(engine)
-        loaders = [FileSystemLoader(self.rootdirs, extension)] + extra_loaders
-        self.filetypes[extension] = FileType(
-            extension, engines, mimetype, loaders)
-
-    def define_global(self, mimetype, name, value, needs_escaping=True):
-        assert not self._finalized
-        assert not any(x for x in self.globals[mimetype] if x.name == name)
-        self.globals[mimetype].append(
-            VariableDefinition(name, value, needs_escaping))
-        for filetype in self.filetypes.values():
-            if mimetype and filetype.mimetype != mimetype:
-                continue
-            for engine in filetype.engines:
-                engine.add_global(name, value, needs_escaping)
+    def define_global(self, mimetype, name, value, escape=True):
+        self.filetypes[mimetype].define_global(name, value, escape=escape)
 
     def iter_paths(self, mimetype=None):
-        for filetype in self.filetypes.values():
-            if mimetype and filetype.mimetype != mimetype:
-                continue
-            yield from filetype.loader.iter_paths()
+        if mimetype:
+            mimetypes = [mimetype]
+        else:
+            mimetypes = [mimetype for mimetype in self.filetypes]
+        for mimetype in mimetypes:
+            for extension in self.filetypes[mimetype].extensions:
+                for loader in self.loaders[extension]:
+                    yield from loader.iter_paths()
 
-    def render(self, path, variables):
-        parts = os.path.basename(path).split('.', maxsplit=1)
-        if len(parts) == 1:
-            # TODO: other exception?
-            raise TemplateNotFound(path)
-        if parts[1] not in self.filetypes:
-            raise TemplateNotFound(path)
-        filetype = self.filetypes[parts[1]]
-        is_file, result = filetype.loader.load(path)
-        for engine in filetype.engines:
+    def render(self, path, variables=None, *, apply_postprocessors=True):
+        filetype = self._find_filetype(path)
+        is_file, result = self._load_path(path)
+        if variables is None:
+            variables = {}
+        for renderer in self._find_renderers(path, filetype=filetype):
             if is_file:
-                result = engine.render_file(result, variables, path=path)
+                result = renderer.render_file(result, variables, path=path)
                 is_file = False
             else:
-                result = engine.render_string(result, variables, path=path)
+                result = renderer.render_string(result, variables, path=path)
         if is_file:
             result = open(result).read()
+        if apply_postprocessors:
+            for postprocessor in filetype.postprocessors:
+                result = postprocessor(result)
         return result
+
+    def mimetype(self, path):
+        return self._find_filetype(path).mimetype
 
     def hash(self, path):
         parts = os.path.basename(path).split('.', maxsplit=1)
@@ -165,10 +151,200 @@ class ConfiguredTplModule(ConfiguredModule):
         filetype = self.filetypes[parts[1]]
         return filetype.loader.hash(path)
 
+    def _finalize(self):
+        # make sure that every file extension is associated with
+        # at most one filetype
+        all_extensions = set()
+        for filetype in self.filetypes.values():
+            duplicates = all_extensions.intersection(filetype.extensions)
+            if not duplicates:
+                all_extensions |= set(filetype.extensions)
+                continue
+            extension = duplicates.pop()
+            filetypes = [f for f in self.filetypes
+                         if extension in f.extensions.extensions]
+            import score.tpl
+            raise ConfigurationError(
+                score.tpl,
+                'Extension %s registered with multiple mimetypes: %s' %
+                (extension, filetypes))
+        for extension in self.loaders:
+            if extension not in all_extensions:
+                import score.tpl
+                raise ConfigurationError(
+                    score.tpl,
+                    'Loader Extension "%s" has no filetype' % (extension,))
+        for extension in self.engines:
+            if extension not in all_extensions:
+                import score.tpl
+                raise ConfigurationError(
+                    score.tpl,
+                    'Engine Extension "%s" has no filetype' % (extension,))
+        # sort loaders and engines by length of extension string
+        # this is important, as we want to test 'tar.gz' before 'gz'
+        self.loaders = OrderedDict(
+            (ext, self.loaders[ext])
+            for ext in sorted(all_extensions, key=len, reverse=True))
+        self.engines = OrderedDict(
+            (ext, self.engines[ext])
+            for ext in sorted(self.engines, key=len, reverse=True))
 
-FileType = nametuple('FileType',
-                     ('extension', 'engines', 'mimetypes', 'loader'))
+    def _load_path(self, path):
+        loaders = []
+        for extension in self.loaders:
+            if path.endswith('.%s' % (extension,)):
+                loaders = self.loaders[extension]
+                break
+        for loader in loaders:
+            try:
+                return loader.load(path)
+            except TemplateNotFound:
+                pass
+        raise TemplateNotFound(path)
+
+    def _find_renderers(self, path, *, filetype=None):
+        renderers = []
+        filename = os.path.basename(path)
+        if filetype is None:
+            filetype = self._find_filetype(path)
+        while True:
+            candidates = []
+            for extension, engine in self.engines.items():
+                idx = filename.rfind('.%s' % extension)
+                if idx < 0:
+                    continue
+                candidates.append((extension, idx))
+            if not candidates:
+                break
+            extension, idx = sorted(
+                candidates, key=lambda x: (x[1] + len(x[0]), len(x[0])))[0]
+            filename = filename[:len(extension) + 1]
+            if filetype not in self.renderers[engine]:
+                renderer = engine(self, filetype)
+                for name, value, escape in filetype.globals:
+                    renderer.add_global(name, value, escape)
+                self.renderers[engine][filetype] = renderer
+            renderers.append(self.renderers[engine][filetype])
+        return renderers
+
+    def _find_filetype(self, path):
+        filename = os.path.basename(path)
+        extensions = filename.split('.')[1:]
+        for i in range(len(extensions), 0, -1):
+            extension = '.'.join(extensions[:i])
+            try:
+                return next(f for f in self.filetypes.values()
+                            if extension in f.extensions)
+            except StopIteration:
+                pass
+        raise TemplateNotFound(path)
 
 
-VariableDefinition = nametuple('VariableDefinition',
-                               ('name', 'value', 'needs_escaping'))
+class Loaders(defaultdict):
+
+    def __init__(self, conf):
+        self.conf = conf
+        super().__init__()
+
+    def __missing__(self, key):
+        if '/' in key:
+            raise ValueError('Invalid File extension "%s"' % (key,))
+        loaders = list()
+        if self.conf.rootdirs:
+            loaders.append(FileSystemLoader(self.conf.rootdirs, key))
+        self[key] = loaders
+        return loaders
+
+
+class Engines(dict):
+
+    def __init__(self, conf):
+        self.conf = conf
+        super().__init__()
+
+    def __setitem__(self, key, value):
+        if key in self:
+            raise ValueError(
+                'Renderer for extension `%s` already defined as %s' %
+                (key, repr(self[key])))
+        if '/' in key:
+            raise ValueError('Invalid File extension "%s"' % (key,))
+        return super().__setitem__(key, value)
+
+
+class FileTypes(defaultdict):
+
+    def __init__(self, conf):
+        self.conf = conf
+        super().__init__()
+
+    def __missing__(self, key):
+        filetype = FileType(self.conf, key)
+        self[key] = filetype
+        return filetype
+
+
+class FileType:
+
+    def __init__(self, conf, mimetype):
+        self.__conf = conf
+        self.__mimetype = mimetype
+        self.__extensions = []
+        self.__postprocessors = []
+        self.__globals = []
+        self.__combiner = None
+        self.__finalized = False
+
+    def _finalize(self):
+        self.__extensions = tuple(self.__extensions)
+        self.__postprocessors = tuple(self.__postprocessors)
+        self.__globals = tuple(self.__globals)
+        self.__finalized = True
+
+    @property
+    def mimetype(self):
+        return self.__mimetype
+
+    @property
+    def combiner(self):
+        return self.__combiner
+
+    @combiner.setter
+    def combiner(self, value):
+        assert not self.__finalized
+        if self.__combiner is not None:
+            raise ValueError(
+                'Combiner for file type `%s` already defined as %s' %
+                (self.mimetype, repr(self.__combiner)))
+        self.__combiner = value
+
+    @property
+    def extensions(self):
+        return self.__extensions
+
+    @extensions.setter
+    def extensions(self, value):
+        assert not self.__finalized
+        self.__extensions = value
+
+    @property
+    def postprocessors(self):
+        return self.__postprocessors
+
+    @postprocessors.setter
+    def postprocessors(self, value):
+        assert not self.__finalized
+        self.__postprocessors = value
+
+    @property
+    def globals(self):
+        return self.__globals
+
+    def add_global(self, name, value, escape=True):
+        assert not self.__finalized
+        assert not any(x for x in self.__globals if x.name == name)
+        self.__globals.append(VariableDefinition(name, value, escape))
+
+
+VariableDefinition = namedtuple('VariableDefinition',
+                                ('name', 'value', 'escape'))

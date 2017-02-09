@@ -27,7 +27,7 @@
 from abc import ABCMeta, abstractmethod
 
 
-class Engine(metaclass=ABCMeta):
+class Renderer(metaclass=ABCMeta):
 
     def __init__(self, conf, extension, mimetype):
         self.conf = conf
@@ -35,7 +35,7 @@ class Engine(metaclass=ABCMeta):
         self.mimetype = mimetype
 
     @abstractmethod
-    def add_global(self, name, value, needs_escaping):
+    def add_global(self, name, value, escape):
         """
         Adds a variable that shall be available globally.
         """

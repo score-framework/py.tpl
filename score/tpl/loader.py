@@ -22,7 +22,10 @@ class Loader:
     def hash(self, path):
         is_file, result = self.load(path)
         if is_file:
-            return os.path.mtime(result)
+            try:
+                return os.path.mtime(result)
+            except FileNotFoundError:
+                raise TemplateNotFound(path)
         else:
             if isinstance(result, str):
                 result = result.encode('ASCII')
@@ -40,10 +43,15 @@ class FileSystemLoader(Loader):
             return
         found = []
         for rootdir in self.rootdirs:
-            pattern = '%s/**/*%s' % (glob.escape(rootdir), self.extension)
+            pattern = '%s/**/*.%s' % (glob.escape(rootdir), self.extension)
             for path in glob.glob(pattern, recursive=True):
-                path = os.path.relpath(rootdir, path)
+                path = os.path.relpath(path, rootdir)
                 if path in found:
+                    continue
+                filename = os.path.basename(path)
+                if '.' in filename[:-(len(self.extension) + 1)]:
+                    # this is not the complete file extension, i.e.
+                    # self.extension is 'foo' and filename is 'myfile.bar.foo'
                     continue
                 found.append(path)
                 yield path
@@ -51,10 +59,35 @@ class FileSystemLoader(Loader):
     def load(self, path):
         for rootdir in self.rootdirs:
             fullpath = os.path.join(rootdir, path)
-            relpath = os.path.relpath(rootdir, fullpath)
+            relpath = os.path.relpath(fullpath, rootdir)
             if relpath.startswith(os.pardir + os.sep):
                 # outside of rootdir
                 continue
             if os.path.exists(fullpath):
                 return True, fullpath
         raise TemplateNotFound(path)
+
+
+class ChainLoader(Loader):
+
+    def __init__(self, loaders):
+        self.loaders = loaders
+
+    def iter_paths(self):
+        for loader in self.loaders:
+            yield from loader.iter_paths()
+
+    def load(self, path):
+        for loader in self.loaders:
+            try:
+                return loader.load(path)
+            except TemplateNotFound:
+                pass
+        raise TemplateNotFound(path)
+
+    def hash(self, path):
+        for loader in self.loaders:
+            try:
+                return loader.hash(path)
+            except TemplateNotFound:
+                pass
