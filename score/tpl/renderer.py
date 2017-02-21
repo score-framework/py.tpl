@@ -29,17 +29,9 @@ from abc import ABCMeta, abstractmethod
 
 class Renderer(metaclass=ABCMeta):
 
-    def __init__(self, conf, extension, mimetype):
-        self.conf = conf
-        self.extension = extension
-        self.mimetype = mimetype
-
-    @abstractmethod
-    def add_global(self, name, value, escape):
-        """
-        Adds a variable that shall be available globally.
-        """
-        return
+    def __init__(self, tpl_conf, filetype):
+        self._tpl_conf = tpl_conf
+        self.filetype = filetype
 
     @abstractmethod
     def render_file(self, file, variables, path=None):
