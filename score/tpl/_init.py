@@ -105,7 +105,7 @@ class ConfiguredTplModule(ConfiguredModule):
         self.filetypes = FileTypes(self)
         self.loaders = Loaders(self)
         self.engines = Engines(self)
-        self.renderers = defaultdict(dict)
+        self._renderers = defaultdict(dict)
 
     def define_global(self, mimetype, name, value, escape=True):
         self.filetypes[mimetype].define_global(name, value, escape=escape)
@@ -219,9 +219,9 @@ class ConfiguredTplModule(ConfiguredModule):
             extension, idx, engine = sorted(
                 candidates, key=lambda x: (x[1] + len(x[0]), len(x[0])))[0]
             filename = filename[:len(extension) + 1]
-            if filetype not in self.renderers[engine]:
-                self.renderers[engine][filetype] = engine(self, filetype)
-            renderers.append(self.renderers[engine][filetype])
+            if filetype not in self._renderers[engine]:
+                self._renderers[engine][filetype] = engine(self, filetype)
+            renderers.append(self._renderers[engine][filetype])
         return renderers
 
     def _find_filetype(self, path):
