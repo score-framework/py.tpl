@@ -337,7 +337,7 @@ class FileType:
     def globals(self):
         return self.__globals
 
-    def add_global(self, name, value, escape=True):
+    def add_global(self, name, value, *, escape=True):
         assert not self.__finalized
         assert not any(x for x in self.__globals if x.name == name)
         self.__globals.append(VariableDefinition(name, value, escape))
