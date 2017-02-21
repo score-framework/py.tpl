@@ -213,17 +213,14 @@ class ConfiguredTplModule(ConfiguredModule):
                 idx = filename.rfind('.%s' % extension)
                 if idx < 0:
                     continue
-                candidates.append((extension, idx))
+                candidates.append((extension, idx, engine))
             if not candidates:
                 break
-            extension, idx = sorted(
+            extension, idx, engine = sorted(
                 candidates, key=lambda x: (x[1] + len(x[0]), len(x[0])))[0]
             filename = filename[:len(extension) + 1]
             if filetype not in self.renderers[engine]:
-                renderer = engine(self, filetype)
-                for name, value, escape in filetype.globals:
-                    renderer.add_global(name, value, escape)
-                self.renderers[engine][filetype] = renderer
+                self.renderers[engine][filetype] = engine(self, filetype)
             renderers.append(self.renderers[engine][filetype])
         return renderers
 
