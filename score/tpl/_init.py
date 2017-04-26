@@ -37,14 +37,11 @@ from ._exc import TemplateNotFound
 from .loader import FileSystemLoader
 from collections import namedtuple, defaultdict, OrderedDict
 from score.init import (
-    init_cache_folder, parse_list, extract_conf,
-    ConfiguredModule, ConfigurationError
-)
+    parse_list, extract_conf, ConfiguredModule, ConfigurationError)
 
 
 defaults = {
     'rootdirs': [],
-    'cachedir': None,
 }
 
 
@@ -64,8 +61,6 @@ def init(confdict):
     conf = dict(defaults.items())
     conf['rootdirs'] = []
     conf.update(confdict)
-    if conf['cachedir']:
-        init_cache_folder(conf, 'cachedir', autopurge=True)
     if 'rootdir' in conf and conf['rootdirs']:
         import score.tpl
         raise ConfigurationError(
@@ -78,7 +73,7 @@ def init(confdict):
             import score.tpl
             raise ConfigurationError(
                 score.tpl, 'Given rootdir is not a folder: %s' % (rootdir,))
-    tpl = ConfiguredTplModule(rootdirs, conf['cachedir'])
+    tpl = ConfiguredTplModule(rootdirs)
     extensions = set()
     for key in extract_conf(conf, 'filetype.'):
         extensions.add(key.rsplit('.', 1)[0])
@@ -98,10 +93,9 @@ class ConfiguredTplModule(ConfiguredModule):
     <score.init.ConfiguredModule>`.
     """
 
-    def __init__(self, rootdirs, cachedir):
+    def __init__(self, rootdirs):
         super().__init__(__package__)
         self.rootdirs = rootdirs
-        self.cachedir = cachedir
         self.filetypes = FileTypes(self)
         self.loaders = Loaders(self)
         self.engines = Engines(self)
@@ -289,8 +283,8 @@ class FileType:
         self.__extensions = []
         self.__postprocessors = []
         self.__globals = []
-        self.__combiner = None
         self.__finalized = False
+        self.__escape = None
 
     def _finalize(self):
         self.__extensions = tuple(self.__extensions)
@@ -301,19 +295,6 @@ class FileType:
     @property
     def mimetype(self):
         return self.__mimetype
-
-    @property
-    def combiner(self):
-        return self.__combiner
-
-    @combiner.setter
-    def combiner(self, value):
-        assert not self.__finalized
-        if self.__combiner is not None:
-            raise ValueError(
-                'Combiner for file type `%s` already defined as %s' %
-                (self.mimetype, repr(self.__combiner)))
-        self.__combiner = value
 
     @property
     def extensions(self):
@@ -332,6 +313,15 @@ class FileType:
     def postprocessors(self, value):
         assert not self.__finalized
         self.__postprocessors = value
+
+    @property
+    def escape(self):
+        return self.__escape
+
+    @escape.setter
+    def escape(self, callback):
+        assert not self.__finalized
+        self.__escape = callback
 
     @property
     def globals(self):
