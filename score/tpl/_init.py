@@ -291,6 +291,7 @@ class FileType:
         self.__escape = None
 
     def _finalize(self):
+        # TODO: check for duplicates in extensions
         self.__extensions = tuple(self.__extensions)
         self.__postprocessors = tuple(self.__postprocessors)
         self.__globals = tuple(self.__globals)
