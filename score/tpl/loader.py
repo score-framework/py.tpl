@@ -23,7 +23,7 @@ class Loader:
         is_file, result = self.load(path)
         if is_file:
             try:
-                return os.path.mtime(result)
+                return os.path.getmtime(result)
             except FileNotFoundError:
                 raise TemplateNotFound(path)
         else:
