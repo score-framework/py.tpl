@@ -140,10 +140,14 @@ class ConfiguredTplModule(ConfiguredModule):
         if len(parts) == 1:
             # TODO: other exception?
             raise TemplateNotFound(path)
-        if parts[1] not in self.filetypes:
+        if parts[1] not in self.loaders:
             raise TemplateNotFound(path)
-        filetype = self.filetypes[parts[1]]
-        return filetype.loader.hash(path)
+        for loader in self.loaders[parts[1]]:
+            try:
+                return str(loader.hash(path))
+            except TemplateNotFound:
+                continue
+        raise TemplateNotFound(path)
 
     def _finalize(self):
         # make sure that every file extension is associated with
