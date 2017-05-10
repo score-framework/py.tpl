@@ -19,11 +19,14 @@ class Loader:
     def load(self, path):
         pass
 
+    def is_valid(self, path):
+        return path in self.iter_paths()
+
     def hash(self, path):
         is_file, result = self.load(path)
         if is_file:
             try:
-                return os.path.getmtime(result)
+                return str(os.path.getmtime(result))
             except FileNotFoundError:
                 raise TemplateNotFound(path)
         else:
@@ -47,11 +50,6 @@ class FileSystemLoader(Loader):
             for path in glob.glob(pattern, recursive=True):
                 path = os.path.relpath(path, rootdir)
                 if path in found:
-                    continue
-                filename = os.path.basename(path)
-                if '.' in filename[:-(len(self.extension) + 1)]:
-                    # this is not the complete file extension, i.e.
-                    # self.extension is 'foo' and filename is 'myfile.bar.foo'
                     continue
                 found.append(path)
                 yield path

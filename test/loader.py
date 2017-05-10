@@ -38,13 +38,13 @@ def test_filesystem_fallback():
         'rootdirs': os.path.join(os.path.dirname(__file__), 'templates')
     })
     loader = unittest.mock.Mock()
-    loader.load.side_effect = TemplateNotFound
+    loader.is_valid.return_value = False
     tpl.loaders['tpl'].insert(0, loader)
     tpl.filetypes['text/plain'].extensions.append('tpl')
     tpl._finalize()
-    loader.load.assert_not_called()
+    loader.is_valid.assert_not_called()
     assert tpl.render('a.tpl') == 'a\n'
-    loader.load.assert_called_once_with('a.tpl')
+    loader.is_valid.assert_called_once_with('a.tpl')
 
 
 def test_disabling_filesystem_loader():

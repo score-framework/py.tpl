@@ -106,18 +106,29 @@ class ConfiguredTplModule(ConfiguredModule):
         self.filetypes[mimetype].define_global(name, value, escape=escape)
 
     def iter_paths(self, mimetype=None):
-        if mimetype:
-            extensions = self.filetypes[mimetype].extensions
-            regex = re.compile(r'(^|/)[^/.]+\.(%s)($|\.)' %
-                               '|'.join(map(re.escape, extensions)))
-            for path in self.iter_paths():
-                if regex.search(path):
-                    yield path
-        else:
+        def all_paths():
             for mimetype in self.filetypes:
                 for extension in self.filetypes[mimetype].extensions:
                     for loader in self.loaders[extension]:
                         yield from loader.iter_paths()
+
+        def valid_paths():
+            for path in all_paths():
+                try:
+                    self._find_filetype(path)
+                    yield path
+                except TemplateNotFound:
+                    pass
+
+        if mimetype:
+            extensions = self.filetypes[mimetype].extensions
+            regex = re.compile(r'(^|/)[^/.]+\.(%s)($|\.)' %
+                               '|'.join(map(re.escape, extensions)))
+            for path in valid_paths():
+                if regex.search(path):
+                    yield path
+        else:
+            yield from valid_paths()
 
     def render(self, path, variables=None, *, apply_postprocessors=True):
         filetype = self._find_filetype(path)
@@ -141,18 +152,7 @@ class ConfiguredTplModule(ConfiguredModule):
         return self._find_filetype(path).mimetype
 
     def hash(self, path):
-        parts = os.path.basename(path).split('.', maxsplit=1)
-        if len(parts) == 1:
-            # TODO: other exception?
-            raise TemplateNotFound(path)
-        if parts[1] not in self.loaders:
-            raise TemplateNotFound(path)
-        for loader in self.loaders[parts[1]]:
-            try:
-                return str(loader.hash(path))
-            except TemplateNotFound:
-                continue
-        raise TemplateNotFound(path)
+        return self._find_loader(path).hash(path)
 
     def _finalize(self):
         # make sure that every file extension is associated with
@@ -193,16 +193,25 @@ class ConfiguredTplModule(ConfiguredModule):
             for ext in sorted(self.engines, key=len, reverse=True))
 
     def _load_path(self, path):
-        loaders = []
-        for extension in self.loaders:
-            if path.endswith('.%s' % (extension,)):
-                loaders = self.loaders[extension]
-                break
-        for loader in loaders:
-            try:
-                return loader.load(path)
-            except TemplateNotFound:
-                pass
+        return self._find_loader(path).load(path)
+
+    def _find_loader(self, path):
+        parts = os.path.basename(path).split('.', maxsplit=1)
+        if len(parts) == 1:
+            # TODO: other exception?
+            raise TemplateNotFound(path)
+        if parts[1] not in self.loaders:
+            while '.' in parts[1]:
+                more_parts = parts[1].split('.', maxsplit=1)
+                parts[0] += '.' + more_parts[0]
+                parts[1] = more_parts[1]
+                if parts[1] in self.loaders:
+                    break
+            else:
+                raise TemplateNotFound(path)
+        for loader in self.loaders[parts[1]]:
+            if loader.is_valid(path):
+                return loader
         raise TemplateNotFound(path)
 
     def _find_renderers(self, path, *, filetype=None):
