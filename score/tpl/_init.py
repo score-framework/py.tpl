@@ -38,6 +38,7 @@ from .loader import FileSystemLoader
 from collections import namedtuple, defaultdict, OrderedDict
 from score.init import (
     parse_list, extract_conf, ConfiguredModule, ConfigurationError)
+import re
 
 
 defaults = {
@@ -106,13 +107,17 @@ class ConfiguredTplModule(ConfiguredModule):
 
     def iter_paths(self, mimetype=None):
         if mimetype:
-            mimetypes = [mimetype]
+            extensions = self.filetypes[mimetype].extensions
+            regex = re.compile(r'(^|/)[^/.]+\.(%s)($|\.)' %
+                               '|'.join(map(re.escape, extensions)))
+            for path in self.iter_paths():
+                if regex.search(path):
+                    yield path
         else:
-            mimetypes = [mimetype for mimetype in self.filetypes]
-        for mimetype in mimetypes:
-            for extension in self.filetypes[mimetype].extensions:
-                for loader in self.loaders[extension]:
-                    yield from loader.iter_paths()
+            for mimetype in self.filetypes:
+                for extension in self.filetypes[mimetype].extensions:
+                    for loader in self.loaders[extension]:
+                        yield from loader.iter_paths()
 
     def render(self, path, variables=None, *, apply_postprocessors=True):
         filetype = self._find_filetype(path)

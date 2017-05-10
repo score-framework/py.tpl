@@ -60,3 +60,15 @@ def test_disabling_filesystem_loader():
     with pytest.raises(TemplateNotFound):
         tpl.render('a.tpl')
     loader.load.assert_called_once_with('a.tpl')
+
+
+def test_secondary_mimetype():
+    tpl = init({
+        'rootdirs': os.path.join(os.path.dirname(__file__), 'templates')
+    })
+    tpl.filetypes['text/plain'].extensions.append('tpl')
+    tpl.filetypes['text/css'].extensions.append('ext')
+    tpl._finalize()
+    assert tpl.render('a.tpl.ext') == 'a\n'
+    assert 'a.tpl.ext' in tpl.iter_paths('text/plain')
+    assert 'a.tpl.ext' not in tpl.iter_paths('text/css')
