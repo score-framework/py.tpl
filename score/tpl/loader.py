@@ -58,7 +58,7 @@ class FileSystemLoader(Loader):
 
     def load(self, path):
         for rootdir in self.rootdirs:
-            fullpath = os.path.join(rootdir, path)
+            fullpath = os.path.join(rootdir, path.lstrip('/'))
             relpath = os.path.relpath(fullpath, rootdir)
             if relpath.startswith(os.pardir + os.sep):
                 # outside of rootdir
