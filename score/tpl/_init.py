@@ -215,7 +215,8 @@ class ConfiguredTplModule(ConfiguredModule):
             if not candidates:
                 break
             extension, idx, engine = sorted(
-                candidates, key=lambda x: (x[1] + len(x[0]), len(x[0])))[0]
+                candidates, key=lambda x: (x[1] + len(x[0]), len(x[0])),
+                reverse=True)[0]
             filename = filename[:len(extension) + 1]
             if filetype not in self._renderers[engine]:
                 self._renderers[engine][filetype] = engine(self, filetype)
