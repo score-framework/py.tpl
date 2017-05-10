@@ -39,8 +39,8 @@ setup(
     author='strg.at',
     author_email='score@strg.at',
     url='http://score-framework.org',
-    keywords='score framework web templates jinja jinja2 pyramid',
-    packages=['score', 'score.tpl', 'score.tpl.jinja2'],
+    keywords='score framework web templates',
+    packages=['score', 'score.tpl'],
     namespace_packages=['score'],
     zip_safe=False,
     license='LGPL',
@@ -61,7 +61,4 @@ setup(
     install_requires=[
         'score.init >= 0.3.8'
     ],
-    extras_require={
-        'jinja2': ['jinja2 >= 2.7']
-    },
 )
