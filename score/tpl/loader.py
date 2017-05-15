@@ -1,8 +1,8 @@
 from ._exc import TemplateNotFound
 import abc
-import glob
 import os
 import hashlib
+import fnmatch
 
 
 class Loader:
@@ -45,14 +45,16 @@ class FileSystemLoader(Loader):
         if not self.rootdirs:
             return
         found = []
+        filter = '*.%s' % (self.extension,)
         for rootdir in self.rootdirs:
-            pattern = '%s/**/*.%s' % (glob.escape(rootdir), self.extension)
-            for path in glob.glob(pattern, recursive=True):
-                path = os.path.relpath(path, rootdir)
-                if path in found:
-                    continue
-                found.append(path)
-                yield path
+            for base, dirs, files in os.walk(rootdir):
+                for filename in fnmatch.filter(files, filter):
+                    path = os.path.join(base, filename)
+                    path = os.path.relpath(path, rootdir)
+                    if path in found:
+                        continue
+                    found.append(path)
+                    yield path
 
     def load(self, path):
         for rootdir in self.rootdirs:
