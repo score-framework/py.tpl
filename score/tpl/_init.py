@@ -130,9 +130,12 @@ class ConfiguredTplModule(ConfiguredModule):
         else:
             yield from valid_paths()
 
+    def load(self, path):
+        return self._find_loader(path).load(path)
+
     def render(self, path, variables=None, *, apply_postprocessors=True):
         filetype = self._find_filetype(path)
-        is_file, result = self._load_path(path)
+        is_file, result = self.load(path)
         if variables is None:
             variables = {}
         for renderer in self._find_renderers(path, filetype=filetype):
@@ -191,9 +194,6 @@ class ConfiguredTplModule(ConfiguredModule):
         self.engines = OrderedDict(
             (ext, self.engines[ext])
             for ext in sorted(self.engines, key=len, reverse=True))
-
-    def _load_path(self, path):
-        return self._find_loader(path).load(path)
 
     def _find_loader(self, path):
         parts = os.path.basename(path).split('.', maxsplit=1)
