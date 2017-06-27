@@ -103,7 +103,7 @@ class ConfiguredTplModule(ConfiguredModule):
         self._renderers = defaultdict(dict)
 
     def define_global(self, mimetype, name, value, escape=True):
-        self.filetypes[mimetype].define_global(name, value, escape=escape)
+        self.filetypes[mimetype].add_global(name, value, escape=escape)
 
     def iter_paths(self, mimetype=None):
         def all_paths():
