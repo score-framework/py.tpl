@@ -38,6 +38,8 @@ class Loader:
 class FileSystemLoader(Loader):
 
     def __init__(self, rootdirs, extension):
+        if isinstance(rootdirs, str):
+            rootdirs = [rootdirs]
         self.rootdirs = rootdirs
         self.extension = extension
 
