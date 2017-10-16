@@ -65,7 +65,7 @@ def init(confdict):
     if 'rootdir' in conf and conf['rootdirs']:
         import score.tpl
         raise ConfigurationError(
-            score.tpl, 'Both rootdir and rootdirs given')
+            score.tpl, "Both 'rootdir' and 'rootdirs' given")
     if 'rootdir' in conf:
         conf['rootdirs'] = conf['rootdir']
     rootdirs = parse_list(conf['rootdirs'])
