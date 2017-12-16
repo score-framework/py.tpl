@@ -49,7 +49,7 @@ class FileSystemLoader(Loader):
         found = []
         filter = '*.%s' % (self.extension,)
         for rootdir in self.rootdirs:
-            for base, dirs, files in os.walk(rootdir):
+            for base, dirs, files in os.walk(rootdir, followlinks=True):
                 for filename in fnmatch.filter(files, filter):
                     path = os.path.join(base, filename)
                     path = os.path.relpath(path, rootdir)
