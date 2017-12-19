@@ -27,8 +27,8 @@
 from ._exc import TemplateNotFound
 import abc
 import os
-import hashlib
 import fnmatch
+import xxhash
 
 
 class Loader:
@@ -74,20 +74,24 @@ class Loader:
     def hash(self, path):
         """
         Provides a random `str`, that will always change whenever the file
-        content changes. The default implementation uses the file timestamp, if
-        :meth:`load` returns a file, and the content hash using sha256 if is
-        returns the template content.
+        content changes. The default implementation uses the content's xxHash_.
+
+        .. _xxHash: http://cyan4973.github.io/xxHash/
         """
         is_file, result = self.load(path)
         if is_file:
             try:
-                return str(os.path.getmtime(result))
+                hash = xxhash.xxh64()
+                with open(result, 'rb') as file:
+                    for chunk in iter(lambda: file.read(4096), b""):
+                        hash.update(chunk)
+                return hash.hexdigest()
             except FileNotFoundError:
                 raise TemplateNotFound(path)
         else:
             if isinstance(result, str):
                 result = result.encode('ASCII')
-            return hashlib.sha256(result).hexdigest()
+            return xxhash.xxh64(result).hexdigest()
 
 
 class FileSystemLoader(Loader):

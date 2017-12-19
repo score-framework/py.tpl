@@ -59,6 +59,7 @@ setup(
         'Topic :: Software Development :: Libraries :: Application Frameworks',
     ],
     install_requires=[
-        'score.init >= 0.3.8'
+        'score.init >= 0.3.8',
+        'xxhash',
     ],
 )
