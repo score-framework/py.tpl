@@ -63,11 +63,12 @@ configured template module's :attr:`filetypes`:
 
 >>> tpl.filetypes['text/plain'].extensions.append('txt')
 >>> def leetify(text):
-...     return text.replace('e', '3')\
-...                .replace('i', '1')\
-...                .replace('l', '1')\
-...                .replace('t', '7')\
-...                .replace('o', '0')
+...     return text\
+...             .replace('e', '3')\
+...             .replace('i', '1')\
+...             .replace('l', '1')\
+...             .replace('t', '7')\
+...             .replace('o', '0')
 ... 
 >>> tpl.filetypes['text/plain'].postprocessors.append(leetify)
 
@@ -202,6 +203,78 @@ Configuration
 .. autofunction:: init
 
 .. autoclass:: ConfiguredTplModule()
+
+    .. attribute:: filetypes
+
+        Mapping of mime type strings to :class:`FileType` objects. Missing
+        value will be created automatically, so the following code will work,
+        even if no 'text/html' file type was defined yet:
+
+        >>> tpl.filetypes['text/plain'].extensions.append('txt')
+
+    .. attribute:: loaders
+
+        Mapping of file extensions to :class:`Loader` instances. You can modify
+        this dict to your liking until the module is :ref:`finalized
+        <finalization>`.
+
+    .. attribute:: engines
+
+        Mapping of file extensions to callbacks capable of creating
+        :class:`Engine` instances. The callback will be invoked once for every
+        mime type, receiving the configured :mod:`score.tpl` module and the
+        mime type to create the :class:`Renderer` for.
+
+        Example: Assuming, that the "jinja2" engine is registered for the file
+        extension "jinja2", as is the default of :mod:`score.jinja2`. When the
+        :mod:`score.tpl` module is instructed to render the template
+        "foo.jinja2", it will invoke the engine callback for the first time to
+        create a :class:`Renderer` for the "text/html" mime type:
+
+        >>> engine(tpl, "text/html")
+
+        If the :mod:`score.css` module was configured, it is possible to render
+        a jinja2 template to construct a css file dynamically. So if the
+        :mod:`score.tpl` module is instructed to render the file called
+        "bar.css.jinja2", it will invoke the engine again to obtain another
+        jinja2 :class:`Renderer`:
+
+        >>> engine(tpl, "text/css")
+
+    .. automethod:: iter_paths
+
+    .. automethod:: render
+
+    .. automethod:: load
+
+    .. automethod:: mimetype
+
+    .. automethod:: hash
+
+.. autoclass:: FileType()
+
+    .. attribute:: mimetype
+
+        The `mime type`_ associated with this file type.
+
+    .. attribute:: extensions
+
+        List of extensions associated with this file type. Extensions must not
+        start with a period, but may contain them. Thus ``.foo`` is invalid,
+        whereas ``foo`` and ``foo.bar`` are both valid.
+
+    .. attribute:: postprocessors
+
+        List of postprocessor callbacks for this file type. Each postprocessor
+        must accept a content string (the rendered template) and return the
+        modified content.
+
+    .. attribute:: globals
+
+        A list of :func:`namedtuples <collections.namedtuple>`, each consisting
+        of the parameters passed to :meth:`add_global`.
+
+    .. automethod:: add_global
 
 
 Loader

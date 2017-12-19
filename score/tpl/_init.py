@@ -93,6 +93,11 @@ class ConfiguredTplModule(ConfiguredModule):
         self.filetypes[mimetype].add_global(name, value, escape=escape)
 
     def iter_paths(self, mimetype=None):
+        """
+        Provides a generator iterating over all known template paths. If the
+        optional parameter *mimetype* is present, only templates of that mime
+        type will pe provided instead.
+        """
         def all_paths():
             for mimetype in self.filetypes:
                 for extension in self.filetypes[mimetype].extensions:
@@ -118,9 +123,19 @@ class ConfiguredTplModule(ConfiguredModule):
             yield from valid_paths()
 
     def load(self, path):
+        """
+        Loads given template *path*.
+
+        See :meth:`Loader.load`.
+        """
         return self._find_loader(path).load(path)
 
     def render(self, path, variables=None, *, apply_postprocessors=True):
+        """
+        Renders give template *path* with the optional `dict` of *variables*. It
+        is possible to prevent running the file type's postprocessors by passing
+        a falsey value for the *apply_postprocessors* parameter.
+        """
         filetype = self._find_filetype(path)
         is_file, result = self.load(path)
         if variables is None:
@@ -139,9 +154,19 @@ class ConfiguredTplModule(ConfiguredModule):
         return result
 
     def mimetype(self, path):
+        """
+        Provides to mime type associated with given *path*.
+
+        See :ref:`tpl_file_types`.
+        """
         return self._find_filetype(path).mimetype
 
     def hash(self, path):
+        """
+        Provides a hash for given template *path*.
+
+        See :meth:`Loader.hash`.
+        """
         return self._find_loader(path).hash(path)
 
     def _finalize(self):
@@ -282,6 +307,10 @@ class FileTypes(defaultdict):
 
 
 class FileType:
+    """
+    Represents a known :term:`file type`. Attributes may only be modified until
+    :ref:`finalization <finalization>` of the module.
+    """
 
     def __init__(self, conf, mimetype):
         self.__conf = conf
@@ -335,6 +364,11 @@ class FileType:
         return self.__globals
 
     def add_global(self, name, value, *, escape=True):
+        """
+        Defines a new global variable with given *name* and *value* for this
+        file type. The optional parameter *escape* determines, whether the value
+        must be escaped in the final output.
+        """
         assert not self.__finalized
         assert not any(x for x in self.__globals if x.name == name)
         self.__globals.append(VariableDefinition(name, value, escape))
