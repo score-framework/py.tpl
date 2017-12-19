@@ -33,16 +33,16 @@ class Renderer(metaclass=ABCMeta):
         self._tpl_conf = tpl_conf
         self.filetype = filetype
 
-    @abstractmethod
     def render_file(self, file, variables, path=None):
         """
         Renders given template *file* with the given *variables* dict.
         """
-        return
+        return self.render_string(open(file).read(), variables, path=path)
 
     @abstractmethod
     def render_string(self, string, variables, path=None):
         """
-        Renders given template *string* with the given *variables* dict.
+        Renders the given template content *string* with the given *variables*
+        dict.
         """
         return

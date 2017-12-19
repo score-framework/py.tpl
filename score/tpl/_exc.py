@@ -26,8 +26,6 @@
 
 
 class TemplateNotFound(Exception):
-    pass
-
-
-class InvalidTemplateExtension(Exception):
-    pass
+    """
+    Thrown when a template was requested, but not found.
+    """

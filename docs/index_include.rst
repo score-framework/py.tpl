@@ -1,261 +1,228 @@
 .. module:: score.tpl
-.. role:: faint
 .. role:: confkey
+.. role:: confdefault
 
 *********
 score.tpl
 *********
 
-Introduction
-============
+This module handles :term:`templates <template>`, i.e. text files that
+[usually] need to be pre-processed before they can be put to their actual use.
+This is not just limited to typical template languages like Jinja2_ or Mako_,
+but also include preprocessors for other formats like sass_ or coffescript_.
 
-This module handles :term:`templates <template>`, i.e. files that need to be
-pre-processed before they can be put to their actual use. The central class
-for converting templates to their target format is the
-:class:`score.tpl.Renderer`.
+.. _Jinja2: http://jinja.pocoo.org/
+.. _Mako: http://www.makotemplates.org/
+.. _sass: http://sass-lang.com/
+.. _coffescript: http://coffeescript.org/
 
-.. _tpl_templates:
+Quickstart
+==========
 
-Templates
+This module is usally used in combination with other modules like
+:mod:`score.jinja2`, :mod:`score.css`, :mod:`score.sass`, :mod:`score.js`, etc.
+So add this module and the others you need to your initialization list and
+provide the root folder containing all your template files:
+
+.. code-block:: ini
+
+    [score.init]
+    modules =
+        score.tpl
+        score.jinja2
+        score.css
+
+    [tpl]
+    rootdir = ${here}/tpl
+
+You can then render your templates:
+
+>>> score.tpl.render('self-defense.jinja2', {'fruit' => 'banana'})
+
+
+Configuration
+=============
+
+.. autofunction:: init
+
+
+Details
+=======
+
+.. _tpl_file_types:
+
+File Types
+----------
+
+This module primarily manages :term:`file types <file type>`: classes of files
+identified by a common `mime type`_. Every file type may have an associated
+list of file extensions, postprocessors and global variables.
+
+You can define new file types accessing the :class:`FileType` objects in the
+configured template module's :attr:`filetypes`:
+
+>>> tpl.filetypes['text/plain'].extensions.append('txt')
+>>> def leetify(text):
+...     return text.replace('e', '3')\
+...                .replace('i', '1')\
+...                .replace('l', '1')\
+...                .replace('t', '7')\
+...                .replace('o', '0')
+... 
+>>> tpl.filetypes['text/plain'].postprocessors.append(leetify)
+
+Your textual content will now always be rendered in leetspeak_.
+
+.. _mime type: https://en.wikipedia.org/wiki/Media_type
+.. _leetspeak: https://en.wikipedia.org/wiki/Leet
+
+
+.. _tpl_loaders:
+
+Loaders
+-------
+
+:class:`Loaders <Loader>` are objects that can provide the contents of
+templates. They are always associated with a file extension and can be
+registered with this module. The following is a loader, that can provide all
+text files on your computer:
+
+>>> tpl.loaders.append(FileSytemLoader('/', 'txt'))
+
+If you also configure the leetify postprocessor found in the previous section,
+you can read all your text files in leetspeak after finalizing the module:
+
+>>> tpl.render('/some/text/file.txt')
+'H3110 W0r1d'
+
+
+.. _tpl_renderers:
+
+Renderers
 ---------
 
-Every template has a target :term:`format <template format>`, i.e. the file
-format of the rendered template. This could be an arbitrary file format, like
-HTML, CSS, Javascript, SVG or even binary formats like ZIP or PNG.
+It is also possible to register renderers for arbitrary file extensions. The
+module will the pass the template content to the renderer for processing and
+treat the return value as the new template content.
 
-:term:`Template formats <template format>` must be defined explicitly during
-the initialization of an application. After a format was registered in the
-configured :class:`renderer <score.tpl.Renderer>`, additional resources may
-be registered for that template format. These resources are:
+When registering renderers, they are not passed directly, but through a factory
+method, which is called the :term:`engine <template engine>` in this context.
+The following example creates a Renderer, that replaces all occurrences of the
+string ``FRUIT`` with the *fruit* variable, that was passed to the renderer:
 
-- functions,
-- filters and
-- global values.
+.. code-block:: python
 
-These resources are available globally in the templates of that format.
+    class FruitRenderer(Renderer):
 
-.. _tpl_functions:
+        def render_string(self, string, variables, path=None):
+            return string.replace('FRUIT', variables['fruit'])
 
-Functions
-`````````
+    tpl.engines['txt'] = FruitRenderer
 
-A registered function usually generates an output that is to be embedded in
-the rendered template. How the function needs to be called is left to the
-engine rendering the template, but it *must* provide all registered functions
-within templates.
+The reason for this additional layer of indirection is that some templating
+engines have separate modes for different file types: The Jinja2_ renderer can
+be configured to automatically escape the HTML output, for example. This means,
+that the Jinja2 engine may choose to provide a different :class:`Renderer`, if
+the target mime type is 'text/html'.
 
-A web application hosting articles, where the background color for each
-article can be set by the editor creating the article, might have a global
-function ``article_css``, which accepts an article object and generates the
-necessary style sheets for that article.
-
-Such a function might be useful in templates rendering CSS files, as well as
-those rendering HTML (for embedding inline styles in certain cases).
-
-.. _tpl_filters:
-
-Filters
-```````
-
-A filter is very much like a function, but accepts just a single value and
-returns another value. Some engines have a special syntax for filters allowing
-a very readable use of these functions.
-
-An application using big numbers might want to convert them to a more
-human-readable string using a certain locale. If one would, for example,
-register a filter called ``gernum``, which converts numbers to strings in
-the german locale, the following Jinja2_ template::
-
-    {{ 123456789.01 | gernum }}
-
-… would render as::
-
-    123.456.789,01
 
 .. _tpl_globals:
 
-Global Variables
-````````````````
-
-It is also possible to register other global values that are present in *all*
-templates of given format.
-
-.. todo::
-    Does this need more documentation?
-
-.. _tpl_engines:
-
-Engines
+Globals
 -------
 
-The conversion to the target *format* is performed by an :term:`engine
-<template engine>`. An engine receives a template (either as a string or a
-file name) and returns the rendered template in its target *format* as a
-string.
+It is also possible to provide variables, that are always present in certain
+file types. The following example provides the function *now* inside
+'text/html' templates (for engines, that support calling functions):
 
-An example engine is Jinja2_. It can convert the following template string::
+>>> from datetime import datetime
+>>> tpl.filetypes['text/plain'].add_global('now', datetime.now)
 
-    <html>
-        <body>
-            Hello, {{ user.fullname }}!
-        </body>
-    </html>
+Your template can now always access the current time:
 
-to the following HTML::
+.. code-block:: jinja
 
-    <html>
-        <body>
-            Hello, Sir Robin the Not-Quite-So-Brave-As-Sir-Lancelot!
-        </body>
-    </html>
+    The current time is {{ now() }}.
 
-As we can see in the example, it requires a ``user`` object to do so. This
-``user`` value must be provided for the rendering to succeed.
-
-.. _Jinja2: http://jinja.pocoo.org/
-
-.. _tpl_converters:
-
-Converters
-----------
-
-:term:`Template formats <template format>` may also have a
-:class:`converter object <score.tpl.TemplateConverter>`, which further
-transforms the output of an engine.
-
-An example might be an HTML minifier, which converts the example output of the
-above template into the following string::
-
-    <html><body>Hello, Sir Robin the Not-Quite-So-Brave-As-Sir-Lancelot!</body></html>
-
-The difference between a *converter* and an *engine* is that a *converter*
-does not receive any variables. Nor does it receive any of the functions,
-filters or global variables of its file format. It must operate with whatever
-resources it had at the time the *converter* was registered - usually during
-the initialization of the application.
 
 .. _tpl_rendering:
 
 Rendering Process
 -----------------
 
-When instructed to render a template in a given :term:`template format` with a
-given :term:`template engine`, the :class:`Renderer <score.tpl.Renderer>` will
-first call the *template engine*. That call will execute and result in a
-string in the template's file *format*.
+When instructed to render a template, the module needs to perform these steps:
 
-If that registered *template format* has a configured
-:term:`template converter`, the string produced in the previous step will be
-passed to that *converter* function to yield a new string.
+- Determine the loader to use
+- Determine the file type of the template
+- Determine the renderers to use
 
-The resulting string is the return value of the rendering process.
+Normally, each of these decisions is trivial, but there are some cases that
+need a bit more explanation. Let's look at these steps when loading the file
+``myfile.css.jinja2``, a Jinja2_ file that renders content of the mime type
+'text/css'.
 
-If no :term:`template engine` was given, the file is just processed by the
-*converter*, which directly generates the output of the rendering process.
+Determining the Loader
+``````````````````````
 
-The whole process as a graph::
-
-    .                       +---------------+
-                            | Invoke engine |
-                            +---------------+
-                             ^            |
-                             | yes        |
-                             |            V
-               +--------------+    no    +------------------+
-    *path* --> | Have engine? | -------->| Invoke converter | --> output
-               +--------------+          +------------------+
+As each :class:`Loader` is associated with an extension, we will need to be
+careful with file paths having more than one file extension. When loading file
+``myfile.css.jinja2``, the module would first look for a Loader registered with
+the extension ``css.jinja2``. If there is none, it would next look for a Loader
+for ``jinja2`` files. If that doesn't exist either, the module will raise a
+:class:`TemplateNotFound` exception.
 
 
-The :class:`Renderer <score.tpl.Renderer>` in this module will try to
-determine the :term:`template format` and the :term:`template engine` to use
-with the help of a file's extensions.
+Determining the File Type
+`````````````````````````
 
-It assumes that the name of a file format is also the extension for files of
-that type. If the file format is ``css``, for example, it assumes that all
-files with that extension have that format.
+A very similar process is performed for finding the file type of a template.
+This time the extensions are searched backwards, though: When looking for the
+file type of ``myfile.css.jinja2``, the module will first check if any file
+type was registered for the extension ``css.jinja2``. If it finds none, it will
+look for the mime type of the extension ``css``.
 
-All files may have an optional *engine extension*, as well. If ``jinja2`` and
-``mako`` are registered *engine extensions*, the following paths will all be
-detected as ``css`` files:
 
-- ``reset.css``
-- ``reset.css.jinja2``
-- ``reset.css.mako``
+Determining Renderers
+`````````````````````
 
-Furthermore, if ``css`` was configured to be the default template format, the
-following files will also be treated as ``css`` files:
+When looking for the renderers to use, the module will first test if there is a
+renderer for the extension ``css.jinja2``. If there is none, it will check for
+two other extensions: First ``jinja2``, then ``css``. So the possible engine
+list for our example path are:
 
-- ``reset`` (no engine)
-- ``reset.js`` (no engine)
-- ``reset.txt`` (no engine)
-- ``reset.jinja2`` (engine = jinja2)
-- ``reset.mako`` (engine = mako)
+- Just one engine: the one registered for the extension ``css.jinja2``
+- Both ``jinja2`` and ``css`` engines.
+- Just ``jinja2``
+- Just ``css``
+
 
 Configuration
 =============
 
-.. autofunction:: score.tpl.init
+.. autofunction:: init
 
-.. autoclass:: score.tpl.ConfiguredTplModule()
+.. autoclass:: ConfiguredTplModule()
 
-    .. attribute:: renderer
 
-        The :class:`template renderer <score.tpl.Renderer>` for this
-        configuration. Other modules might register functions, filters and
-        globals to this object.
+Loader
+======
 
-    .. attribute:: rootdir
+.. autoclass:: Loader
+    :members:
 
-        The *root* folder of all templates. This value is either `None` -
-        meaning that no root folder was configured, or it points to an
-        existing folder on the file system.
+.. autoclass:: FileSystemLoader
 
-    .. attribute:: cachedir
+.. autoclass:: ChainLoader
 
-        Cache folder for all templates. This value is either `None` or it
-        points to an existing and writable folder on the file system.
-
-    .. attribute:: default_format
-
-        The :term:`file format <template format>` to assume if it cannot be
-        determined automatically. Might be `None`.
 
 Renderer
 ========
 
-.. autoclass:: score.tpl.Renderer
+.. autoclass:: Renderer
     :members:
 
-Converter
-=========
+Exceptions
+==========
 
-.. autoclass:: score.tpl.TemplateConverter
-    :members:
+.. autoclass:: TemplateNotFound
 
-Engine
-======
-
-.. autoclass:: score.tpl.engine.Engine
-    :members:
-
-.. autoclass:: score.tpl.engine.EngineRenderer
-    :members:
-
-jinja2
-------
-
-.. note::
-    Currently, Jinja2_ is the only engine this module supports.
-
-    .. _Jinja2: http://jinja.pocoo.org/
-
-.. automodule:: score.tpl.jinja2
-
-.. autoclass:: score.tpl.jinja2.Engine
-    :members:
-
-.. autoclass:: score.tpl.jinja2.GenericRenderer
-    :members:
-
-.. autoclass:: score.tpl.jinja2.html.Renderer
-    :members:

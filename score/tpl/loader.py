@@ -32,6 +32,9 @@ import fnmatch
 
 
 class Loader:
+    """
+    Object capable of loading template content.
+    """
 
     @property
     def paths(self):
@@ -39,16 +42,42 @@ class Loader:
 
     @abc.abstractmethod
     def iter_paths(self):
+        """
+        Provide a generator iterating all valid paths of this loader.
+        """
         pass
 
     @abc.abstractmethod
     def load(self, path):
+        """
+        Load given *path*. Returns a 2-tuple, where the first value is a `bool`
+        indicating whether the other value is a file path (`True`) or the
+        contents of the template (`False`). Illustration of the return values:
+
+        .. code-block:: python
+
+            (True, '/path/to/the/template.html')
+            (False, '<html>The contents of the template</html>')
+
+        Raises :class:`TemplateNotFound` if this loader cannot load the given
+        path.
+        """
         pass
 
     def is_valid(self, path):
+        """
+        Whether given *path* is valid for this loader, i.e. whether a call to
+        :meth:`load` would return successfully.
+        """
         return path in self.iter_paths()
 
     def hash(self, path):
+        """
+        Provides a random `str`, that will always change whenever the file
+        content changes. The default implementation uses the file timestamp, if
+        :meth:`load` returns a file, and the content hash using sha256 if is
+        returns the template content.
+        """
         is_file, result = self.load(path)
         if is_file:
             try:
@@ -62,6 +91,10 @@ class Loader:
 
 
 class FileSystemLoader(Loader):
+    """
+    :class:`Loader` searching for files with a given *extension* inside given
+    folders.
+    """
 
     def __init__(self, rootdirs, extension):
         if isinstance(rootdirs, str):
@@ -97,6 +130,12 @@ class FileSystemLoader(Loader):
 
 
 class ChainLoader(Loader):
+    """
+    A :class:`Loader` that will wrap the other given *loaders* and simulate a
+    loader, that combines the features of all of them. If this receives a Loader
+    capable of loading 'a.tpl' and another Loader that can load 'b.tpl', this
+    ChainLoader instance will be able to load 'a.tpl' *and* 'b.tpl'.
+    """
 
     def __init__(self, loaders):
         self.loaders = loaders

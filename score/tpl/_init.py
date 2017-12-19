@@ -24,14 +24,6 @@
 # the discretion of STRG.AT GmbH also the competent court, in whose district the
 # Licensee has his registered seat, an establishment or assets.
 
-"""
-This module handles :term:`templates <template>`, i.e. files that need to be
-pre-processed before they can be put to their actual use. The module
-initialization yields a :class:`.Renderer` object, which is the central hub
-for rendering templates.
-"""
-
-
 import os
 from ._exc import TemplateNotFound
 from .loader import FileSystemLoader
@@ -51,13 +43,8 @@ def init(confdict):
     Initializes this module acoording to :ref:`our module initialization
     guidelines <module_initialization>` with the following configuration keys:
 
-    :confkey:`rootdirs` :faint:`[default=None]`
-        Denotes the root folder containing all templates. When a new format is
-        created via :meth:`.Renderer.register_format`, it will have a
-        sub-folder of this folder as its default root (unless, of course, the
-        `rootdirs` parameter of that function is provided). If this value is
-        omitted, all calls to :meth:`.Renderer.register_format` must provide a
-        format-specific root folder.
+    :confkey:`rootdirs` :confdefault:`None`
+        Denotes the root folder containing all templates.
     """
     conf = dict(defaults.items())
     conf['rootdirs'] = []
