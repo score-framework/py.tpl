@@ -31,11 +31,11 @@ initialization yields a :class:`.Renderer` object, which is the central hub
 for rendering templates.
 """
 
-from ._init import init, ConfiguredTplModule
+from ._init import init, ConfiguredTplModule, FileType
 from ._exc import TemplateNotFound
 from .renderer import Renderer
 from .loader import Loader, FileSystemLoader, ChainLoader
 
 __all__ = (
-    'init', 'ConfiguredTplModule', 'TemplateNotFound', 'Renderer', 'Loader',
-    'FileSystemLoader', 'ChainLoader')
+    'init', 'ConfiguredTplModule', 'FileType', 'TemplateNotFound', 'Renderer',
+    'Loader', 'FileSystemLoader', 'ChainLoader')

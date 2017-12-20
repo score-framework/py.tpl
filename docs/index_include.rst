@@ -197,8 +197,11 @@ list for our example path are:
 - Just ``css``
 
 
+API
+===
+
 Configuration
-=============
+-------------
 
 .. autofunction:: init
 
@@ -278,7 +281,7 @@ Configuration
 
 
 Loader
-======
+------
 
 .. autoclass:: Loader
     :members:
@@ -289,13 +292,13 @@ Loader
 
 
 Renderer
-========
+--------
 
 .. autoclass:: Renderer
     :members:
 
 Exceptions
-==========
+----------
 
 .. autoclass:: TemplateNotFound
 

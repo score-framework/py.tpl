@@ -11,3 +11,8 @@
         .. _Mako: http://www.makotemplates.org/
         .. _sass: http://sass-lang.com/
         .. _coffescript: http://coffeescript.org/
+
+    template engine
+        A callback function, that will construct :class:`score.tpl.Renderer`
+        instances. See :attr:`score.tpl.ConfiguredTplModule.engines` for a
+        more detailed explanation.
