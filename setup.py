@@ -33,7 +33,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 
 setup(
     name='score.tpl',
-    version='0.3.5',
+    version='0.3.6',
     description='Templating support for The SCORE Framework',
     long_description=README,
     author='strg.at',
