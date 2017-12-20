@@ -16,3 +16,9 @@
         A callback function, that will construct :class:`score.tpl.Renderer`
         instances. See :attr:`score.tpl.ConfiguredTplModule.engines` for a
         more detailed explanation.
+
+    file type
+        A registered `mime type`_ with additional properties provided by other
+        modules. See :ref:`tpl_file_types` for an in-depth explanation.
+
+        .. _mime type: https://en.wikipedia.org/wiki/Media_type
