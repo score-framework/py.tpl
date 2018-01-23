@@ -27,7 +27,6 @@
 from ._exc import TemplateNotFound
 import abc
 import os
-import fnmatch
 import xxhash
 
 
@@ -110,12 +109,15 @@ class FileSystemLoader(Loader):
         if not self.rootdirs:
             return
         found = []
-        filter = '*.%s' % (self.extension,)
+        ext = '.%s' % (self.extension,)
+        extlen = len(ext)
         for rootdir in self.rootdirs:
             for base, dirs, files in os.walk(rootdir, followlinks=True):
-                for filename in fnmatch.filter(files, filter):
+                base = os.path.relpath(base, rootdir)
+                for filename in files:
+                    if not filename[-extlen:] != ext:
+                        continue
                     path = os.path.join(base, filename)
-                    path = os.path.relpath(path, rootdir)
                     if path in found:
                         continue
                     found.append(path)
