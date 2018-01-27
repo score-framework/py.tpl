@@ -114,10 +114,14 @@ class FileSystemLoader(Loader):
         for rootdir in self.rootdirs:
             for base, dirs, files in os.walk(rootdir, followlinks=True):
                 base = os.path.relpath(base, rootdir)
+                if base == '.':
+                    base = ''
+                else:
+                    base = base + '/'
                 for filename in files:
                     if filename[-extlen:] != ext:
                         continue
-                    path = os.path.join(base, filename)
+                    path = base + filename
                     if path in found:
                         continue
                     found.append(path)
