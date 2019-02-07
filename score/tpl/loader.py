@@ -168,3 +168,38 @@ class ChainLoader(Loader):
                 return loader.hash(path)
             except TemplateNotFound:
                 pass
+
+
+class PrefixedLoader(Loader):
+    """
+    A :class:`Loader` wrapper, that prefixes a pre-given path to all templates.
+    If this is configured with the prefix 'foo/' and given a loader capable of
+    loading 'a.tpl', the resulting instance will only be able to load
+    'foo/a.tpl' (but not 'a.tpl').
+
+    Note that this loader does not modify the given prefix. It is important to
+    add a slash to the prefix, if you want it to behave like a folder, for
+    example.
+    """
+
+    def __init__(self, prefix, wrapped):
+        self.prefix = prefix
+        self.wrapped = wrapped
+
+    def iter_paths(self):
+        yield from (self.prefix + path for path in self.wrapped.iter_paths())
+
+    def load(self, path):
+        if not path.startswith(self.prefix):
+            raise TemplateNotFound(path)
+        return self.wrapped.load(path[len(self.prefix):])
+
+    def is_valid(self, path):
+        if not path.startswith(self.prefix):
+            return False
+        return self.wrapped.is_valid(path[len(self.prefix):])
+
+    def hash(self, path):
+        if not path.startswith(self.prefix):
+            raise TemplateNotFound(path)
+        return self.wrapped.hash(path[len(self.prefix):])

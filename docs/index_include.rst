@@ -290,6 +290,8 @@ Loader
 
 .. autoclass:: ChainLoader
 
+.. autoclass:: PrefixedLoader
+
 
 Renderer
 --------

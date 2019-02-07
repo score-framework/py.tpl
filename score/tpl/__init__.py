@@ -34,8 +34,8 @@ for rendering templates.
 from ._init import init, ConfiguredTplModule, FileType
 from ._exc import TemplateNotFound
 from .renderer import Renderer
-from .loader import Loader, FileSystemLoader, ChainLoader
+from .loader import Loader, FileSystemLoader, ChainLoader, PrefixedLoader
 
 __all__ = (
     'init', 'ConfiguredTplModule', 'FileType', 'TemplateNotFound', 'Renderer',
-    'Loader', 'FileSystemLoader', 'ChainLoader')
+    'Loader', 'FileSystemLoader', 'ChainLoader', 'PrefixedLoader')
