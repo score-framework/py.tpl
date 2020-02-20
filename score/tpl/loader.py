@@ -106,6 +106,9 @@ class FileSystemLoader(Loader):
         self.rootdirs = rootdirs
         self.extension = extension
 
+    def is_valid(self, path):
+        return bool(self._find_file(path))
+
     def iter_paths(self):
         if not self.rootdirs:
             return
@@ -129,6 +132,12 @@ class FileSystemLoader(Loader):
                     yield path
 
     def load(self, path):
+        file = self._find_file(path)
+        if file:
+            return True, file
+        raise TemplateNotFound(path)
+
+    def _find_file(self, path):
         for rootdir in self.rootdirs:
             fullpath = os.path.join(rootdir, path.lstrip('/'))
             relpath = os.path.relpath(fullpath, rootdir)
@@ -136,8 +145,8 @@ class FileSystemLoader(Loader):
                 # outside of rootdir
                 continue
             if os.path.exists(fullpath):
-                return True, fullpath
-        raise TemplateNotFound(path)
+                return fullpath
+        return None
 
 
 class ChainLoader(Loader):
