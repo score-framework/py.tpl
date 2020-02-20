@@ -256,8 +256,9 @@ class ConfiguredTplModule(ConfiguredModule):
         for i in range(len(extensions), 0, -1):
             extension = '.'.join(extensions[:i])
             try:
-                return next(f for f in self.filetypes.values()
-                            if extension in f.extensions)
+                return next(filetype
+                            for filetype in self.filetypes.values()
+                            if extension in filetype.extensions)
             except StopIteration:
                 pass
         raise TemplateNotFound(path)
