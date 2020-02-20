@@ -24,6 +24,7 @@ License
 =======
 
 Copyright © 2015-2018 STRG.AT GmbH, Vienna, Austria
+
 Copyright © 2020 Necdet Can Ateşman, Vienna, Austria
 
 All files in and beneath this directory are part of The SCORE Framework.
