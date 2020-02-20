@@ -151,6 +151,9 @@ class ChainLoader(Loader):
     def __init__(self, loaders):
         self.loaders = loaders
 
+    def is_valid(self, path):
+        return any(loader.is_valid(path) for loader in self.loaders)
+
     def iter_paths(self):
         for loader in self.loaders:
             yield from loader.iter_paths()
